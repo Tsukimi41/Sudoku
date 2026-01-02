@@ -2,14 +2,15 @@
 ボリューム シリアル番号は 7A75-882A です
 C:.
 |   .gitignore
-|   file_structure.txt
+|   memo.md
 |   package-lock.json
 |   package.json
-|   project_tree.md
-|   project_tree.tt
-|   project_tree.txt
 |   README.md
+|   structure.txt
 |   
++---.vscode
+|       c_cpp_properties.json
+|       
 +---frontend
 |   |   .gitignore
 |   |   index.html
@@ -3629,18 +3630,29 @@ C:.
 |   |           yallist.js
 |   |           
 |   +---public
-|   |       vite.svg
-|   |       
+|   |   |   vite.svg
+|   |   |   
+|   |   \---wasm
+|   |           solver.js
+|   |           solver.wasm
+|   |           
 |   \---src
 |       |   App.css
 |       |   App.tsx
 |       |   index.css
 |       |   index.tsx
 |       |   
-|       \---assets
-|               solid.svg
+|       +---assets
+|       |       solid.svg
+|       |       
+|       \---logic
+|               SudokuEngine.ts
 |               
 +---logic
+|       solver.cpp
+|       solver.js
+|       solver.wasm
+|       
 \---node_modules
     |   .package-lock.json
     |   
