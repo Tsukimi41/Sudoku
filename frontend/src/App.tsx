@@ -205,16 +205,16 @@ function App() {
             return (
               <div
                 class={`cell ${isSelected() ? 'active' : ''} ${isInitial() ? 'initial' : ''} ${isSolved() ? 'solved' : ''}`}
-                // スマホでの反応速度向上のため onPointerDown を使用
+                // スマホでの反応速度向上のためonPointerDownを使用
                 onPointerDown={(e) => {
-                  e.preventDefault(); // スクロール等の副作用を防止
+                  e.preventDefault(); //スクロールや選択を防止
                   handleCellClick(index());
                 }}
                 style={{
                   "animation-delay": isSolved() ? `${(index() % 9 + Math.floor(index() / 9)) * 30}ms` : '0ms'
                 }}
               >
-                {/* 0の場合は薄い点を表示 */}
+                {/*0の場合は薄い点を表示*/}
                 {num !== 0 ? num : <span style={{ opacity: 0.2, "pointer-events": "none" }}>・</span>}
               </div>
             );
