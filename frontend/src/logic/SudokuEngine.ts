@@ -1,17 +1,7 @@
-/*
-仕様書:
-シングルトン管理: Wasmモジュールはアプリ内で1つあれば十分。
-
-型定義: window オブジェクトに createSudokuModule があることをTypeScriptに教える。
-
-初期化メソッド: solver.js を動的に読み込み、モジュールを初期化する。
-*/
-
-
 //型定義の拡張: windowにcreateSudokuModule が存在することをTypeScriptに宣言する。
 declare global {
   interface Window {
-    createSudokuModule: () => Promise<any>;
+    createSudokuModule: (moduleArg?: any) => Promise<any>;
   }
 }
 
@@ -24,17 +14,37 @@ export class SudokuEngine {
   async init() {
     if (this.module) return; // 既にロード済みなら何もしない
 
+    // キャッシュ対策（常に最新のファイルを読ませるためのクエリ）
+    const cacheBuster = "?v=" + new Date().getTime();
+
     // scriptタグを作って public/wasm/solver.js を読み込む
     await new Promise<void>((resolve, reject) => {
       const script = document.createElement("script"); //新しい <script> タグ（HTML要素）を生成。scriptは、JSを書くための輩。
-      script.src = "/wasm/solver.js"; // publicフォルダはルート(/)になる
-      script.onload = () => resolve();// スクリプトの読み込みが完了したとき(onload)に、Promiseは果たされた(resolve)と報告する
+      script.src = "/wasm/solver.js" + cacheBuster; // publicフォルダはルート(/)になる。キャッシュ対策を付与。
+      
+      script.onload = () => {
+        // 読み込み完了時に、関数が正しくロードされたか確認する（安全性向上）
+        if (typeof window.createSudokuModule === 'function') {
+          resolve();
+        } else {
+          reject(new Error("solver.js loaded but createSudokuModule is missing."));
+        }
+      };
+      
       script.onerror = () => reject(new Error("Failed to load solver.js"));
       document.body.appendChild(script); //createしたタグはまだ画面には配属されておらず、タグを、Webページの body（胴体）の末尾にくっつけろ（Append）という命令で初めてブラウザがスクリプトと認識する。
     });
 
     // ロードされた関数を実行してWasmを準備
-    this.module = await window.createSudokuModule();
+    this.module = await window.createSudokuModule({
+      // Wasmファイルにもキャッシュ対策を適用する
+      locateFile: (path: string) => {
+        if (path.endsWith('.wasm')) {
+          return "/wasm/solver.wasm" + cacheBuster;
+        }
+        return path;
+      }
+    });
     this.memory = this.module.HEAP32; 
   }
 
@@ -56,7 +66,7 @@ export class SudokuEngine {
       //JSの配列(board)を、C++のメモリ(HEAP32)にコピーする
       //this.module.HEAP32.set(配列, オフセット);
       //オフセットは ポインタ(ptr)/4（32bit = 4byte単位だから）
-      const offset = ptr/4;
+      const offset = ptr / 4;
       this.module.HEAP32.set(board, offset);
 
 
@@ -67,10 +77,10 @@ export class SudokuEngine {
       if (result === 1) {
         // C++のメモリから結果を取り出す
         // ヒント: this.module.HEAP32.subarray(...)
-        const solvedArray = new Int32Array(
-            this.module.HEAP32.buffer, 
-            ptr, 
-            81
+        // メモリ安全性の向上: bufferを直接参照するよりsubarrayの方が安全
+        const solvedArray = this.module.HEAP32.subarray(
+            offset, 
+            offset + 81
         );
         // JSの普通の配列に変換して返す
         return Array.from(solvedArray);

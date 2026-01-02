@@ -1,4 +1,4 @@
-import { createSignal, For, onMount } from 'solid-js'
+import { createSignal, For, onMount, Show, onCleanup } from 'solid-js'
 import { SudokuEngine } from "./logic/SudokuEngine";
 import './App.css'
 
@@ -88,16 +88,90 @@ function App() {
     }
   };
 
-  //初期化
+  // 初期化
   onMount(async () => {
-    try{
-      await engine.init();
-      setStatus('READY');
-      saveHistory(new Array(81).fill(0), new Array(81).fill(false), 'READY', true);
-    } catch(e){
-      console.error(e);
-      setStatus('ERROR');
-    }
+    // タイムアウト付きの初期化処理
+    const initEngine = async () => {
+      try {
+        // 5秒以内に初期化できなければエラーとする
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Timeout")), 5000)
+        );
+        
+        await Promise.race([
+          engine.init(),
+          timeoutPromise
+        ]);
+        
+        setStatus('READY');
+        // 初期状態保存
+        saveHistory(new Array(81).fill(0), new Array(81).fill(false), 'READY', true);
+      } catch (e) {
+        console.error("Initialization failed:", e);
+        setStatus('ERROR');
+      }
+    };
+
+    await initEngine();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 計算中は操作を受け付けない
+      if (status() === 'SOLVING') return;
+
+      // 1. 数字入力 (1-9)
+      if (e.key >= '1' && e.key <= '9') {
+        handleInput(parseInt(e.key));
+        return;
+      }
+
+      // 2. 削除 (Backspace, Delete, 0)
+      if (['Backspace', 'Delete', '0'].includes(e.key)) {
+        handleInput(0);
+        return;
+      }
+
+      // 3. カーソル移動 (矢印キー) - PCユーザーのための「最高」のUX
+      const current = selectedCell();
+      if (current === null) return; // 選択中でなければ移動もしない
+
+      if (e.key === 'ArrowUp' && current >= 9) {
+        e.preventDefault(); // ブラウザのスクロール防止
+        setSelectedCell(current - 9);
+      }
+      if (e.key === 'ArrowDown' && current < 72) {
+        e.preventDefault();
+        setSelectedCell(current + 9);
+      }
+      if (e.key === 'ArrowLeft' && current % 9 !== 0) {
+        e.preventDefault();
+        setSelectedCell(current - 1);
+      }
+      if (e.key === 'ArrowRight' && current % 9 !== 8) {
+        e.preventDefault();
+        setSelectedCell(current + 1);
+      }
+
+      // 4. 選択解除 (Escape)
+      if (e.key === 'Escape') {
+        setSelectedCell(null);
+      }
+      
+      // 5. Undo/Redo ショートカット (Ctrl+Z, Ctrl+Y)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    // イベントリスナー登録
+    window.addEventListener('keydown', handleKeyDown);
+
+    // お片付け（必須）
+    onCleanup(() => {
+      window.removeEventListener('keydown', handleKeyDown);
+    });
   });
 
 

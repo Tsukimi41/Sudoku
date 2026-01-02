@@ -38,9 +38,32 @@ extern "C" {
         return 0; // 解けなかった
     }
 
+    int isBoardValid(int* board) {
+        for (int i = 0; i < 81; i++) {
+            if (board[i] != 0) {
+                int temp = board[i];
+                board[i] = 0; // 一旦空にする
+                
+                int row = i / 9;
+                int col = i % 9;
+                if (!isValid(board, row, col, temp)) {
+                    board[i] = temp;
+                    return 0; // 重複あり（不正な盤面）
+                }
+                board[i] = temp; // 戻す
+            }
+        }
+        return 1;
+    }
+
     // JSから呼ばれるエントリポイント
     EMSCRIPTEN_KEEPALIVE
     int solve(int* board) {
-        return solveRecursive(board, 0); // 0番目のマスから開始
+        // 事前チェック
+        if (!isBoardValid(board)) {
+            return 0; // 計算せずに「解なし」を返す
+        }
+        // 2. 解く
+        return solveRecursive(board, 0);// 0番目のマスから開始
     }
 }
